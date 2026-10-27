@@ -22,6 +22,7 @@ export function layout({ site, title, description = site.description, path = '/'
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <title>${escape(pageTitle)}</title><meta name="description" content="${escape(description)}">
   <meta name="theme-color" content="#f7f6f0"><meta name="color-scheme" content="light dark">
+  ${site.visibility === 'private' ? '<meta name="robots" content="noindex,nofollow,noarchive">' : ''}
   <link rel="canonical" href="${canonical}"><link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
   <link rel="alternate" type="application/rss+xml" title="${site.name} 的博客" href="/feed.xml">
   <meta property="og:locale" content="zh_CN"><meta property="og:site_name" content="${escape(site.title)}">
