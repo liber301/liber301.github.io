@@ -2,9 +2,9 @@
   "name": "liber",
   "title": "liber · 个人博客",
   "description": "记录开发、AI 学习与日常见闻。把想法写下来，也把生活慢慢展开。",
-  "url": "https://liber301-private-journal.ffzyhvbkbn.chatgpt.site",
+  "url": "https://liber301.github.io",
   "language": "zh-CN",
   "github": "https://github.com/liber301",
   "started": "2026-10-27",
-  "visibility": "private"
+  "visibility": "public"
 }

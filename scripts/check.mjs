@@ -15,7 +15,7 @@ const failures = [];
 for (const filename of htmlFiles) {
   const html = await fs.readFile(filename, 'utf8');
   const route = '/' + path.relative(output, filename).replaceAll(path.sep, '/');
-  if (!/<html lang="zh-CN">/.test(html) || !/<meta name="viewport"/.test(html) || !/<title>[^<]+<\/title>/.test(html)) failures.push(`${route}: missing document metadata`);
+  if (!/<html lang="zh-CN"(?:\s[^>]*)?>/.test(html) || !/<meta name="viewport"/.test(html) || !/<title>[^<]+<\/title>/.test(html)) failures.push(`${route}: missing document metadata`);
   const h1s = html.match(/<h1(?:\s[^>]*)?>/g) || [];
   if (h1s.length !== 1) failures.push(`${route}: expected exactly one h1, found ${h1s.length}`);
   const ids = [...html.matchAll(/\bid="([^"]+)"/g)].map(match => match[1]);

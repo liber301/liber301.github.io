@@ -9,6 +9,9 @@ import * as templates from '../src/templates.mjs';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const output = path.join(root, 'dist');
 const site = JSON.parse(await fs.readFile(path.join(root, 'site.config.json'), 'utf8'));
+const login = JSON.parse(await fs.readFile(path.join(root, 'login.config.json'), 'utf8'));
+if (typeof login.username !== 'string' || !login.username.trim() || !/^[a-f0-9]{32}$/.test(login.salt) || !/^[a-f0-9]{64}$/.test(login.passwordHash)) throw new Error('Invalid login.config.json. Run npm run set-password.');
+const loginVersion = createHash('sha256').update(JSON.stringify(login)).digest('hex').slice(0, 16);
 if (new URL(site.url).protocol !== 'https:') throw new Error('site.url must use HTTPS');
 const md = new MarkdownIt({ html: false, linkify: true, typographer: true });
 const defaultHeading = md.renderer.rules.heading_open;
@@ -53,7 +56,7 @@ const categories = [...new Set(posts.map(post => post.category))];
 const tagCounts = new Map();
 posts.forEach(post => [...new Set(post.tags)].forEach(tag => tagCounts.set(tag, (tagCounts.get(tag) || 0) + 1)));
 const tags = [...tagCounts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'zh-CN'));
-const assets = await Promise.all(['style.css', 'app.js'].map(filename => fs.readFile(path.join(root, 'assets', filename))));
+const assets = await Promise.all(['style.css', 'app.js', 'auth.js'].map(filename => fs.readFile(path.join(root, 'assets', filename))));
 const assetVersion = createHash('sha256').update(Buffer.concat(assets)).digest('hex').slice(0, 10);
 
 // dist is generated output owned by this build; content and source files are never removed.
@@ -68,9 +71,11 @@ async function write(relative, content) {
 }
 async function page(url, title, content, metadata = {}) {
   const filename = url === '/404.html' ? '404.html' : `${decodeURIComponent(url.slice(1))}index.html`;
-  await write(filename, templates.layout({ site, title, content, path: url, assetVersion, ...metadata }));
-  if (url !== '/404.html') pages.push(url);
+  await write(filename, templates.layout({ site, title, content, path: url, assetVersion, loginVersion, ...metadata }));
+  if (!['/404.html', '/login/'].includes(url)) pages.push(url);
 }
+await write('assets/login-config.js', `window.LIBER_LOGIN=${JSON.stringify({ ...login, version: loginVersion }).replaceAll('<', '\\u003c')};\n`);
+await page('/login/', '登录博客', templates.loginPage(), { loginPage: true });
 await page('/', site.title, templates.home({ site, posts, categories, tags }));
 await page('/archives/', '文章归档', templates.archives({ posts }));
 await page('/search/', '搜索文章', templates.search());
@@ -88,4 +93,4 @@ await write('feed.xml', `<?xml version="1.0" encoding="UTF-8"?>\n<rss version="2
 await write('sitemap.xml', `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${pages.filter(url => url !== '/search/').map(url => `<url><loc>${xmlEscape(`${site.url}${url}`)}</loc></url>`).join('')}</urlset>\n`);
 await write('robots.txt', site.visibility === 'private' ? 'User-agent: *\nDisallow: /\n' : `User-agent: *\nAllow: /\nSitemap: ${site.url}/sitemap.xml\n`);
 await write('.nojekyll', '');
-console.log(`Built ${pages.length + 1} HTML pages from ${posts.length} posts into dist/.`);
+console.log(`Built ${pages.length + 2} HTML pages from ${posts.length} posts into dist/.`);

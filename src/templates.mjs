@@ -12,41 +12,50 @@ export const formattedDate = (date) => date.replaceAll('-', '.');
 export const postUrl = (post) => `/posts/${post.slug}/`;
 const active = (path, prefix) => path.startsWith(prefix) ? ' aria-current="page"' : '';
 
-export function layout({ site, title, description = site.description, path = '/', content, type = 'website', date, assetVersion }) {
+export function layout({ site, title, description = site.description, path = '/', content, type = 'website', date, assetVersion, loginVersion, loginPage = false }) {
   const pageTitle = path === '/' ? site.title : `${title} · ${site.name}`;
   const canonical = `${site.url}${path}`;
   const schema = type === 'article' ? { '@context': 'https://schema.org', '@type': 'BlogPosting', headline: title, description, datePublished: date, dateModified: date, author: { '@type': 'Person', name: site.name, url: site.github }, mainEntityOfPage: canonical } : { '@context': 'https://schema.org', '@type': 'Blog', name: site.title, description, url: site.url, inLanguage: site.language };
   return `<!doctype html>
-<html lang="${site.language}">
+<html lang="${site.language}" ${loginPage ? 'data-login-page="true"' : 'data-auth-required'}>
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <title>${escape(pageTitle)}</title><meta name="description" content="${escape(description)}">
   <meta name="theme-color" content="#f7f6f0"><meta name="color-scheme" content="light dark">
-  ${site.visibility === 'private' ? '<meta name="robots" content="noindex,nofollow,noarchive">' : ''}
+  <meta name="robots" content="noindex,nofollow,noarchive">
   <link rel="canonical" href="${canonical}"><link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
   <link rel="alternate" type="application/rss+xml" title="${site.name} 的博客" href="/feed.xml">
   <meta property="og:locale" content="zh_CN"><meta property="og:site_name" content="${escape(site.title)}">
   <meta property="og:type" content="${type}"><meta property="og:title" content="${escape(pageTitle)}"><meta property="og:description" content="${escape(description)}"><meta property="og:url" content="${canonical}">
   <meta name="twitter:card" content="summary">
   <script>document.documentElement.classList.add('js');try{if(localStorage.getItem('liber-theme')==='dark')document.documentElement.dataset.theme='dark'}catch{}</script>
+  <style>html[data-auth-required] body{visibility:hidden}</style>
+  <script src="/assets/login-config.js?v=${loginVersion}"></script>
+  <script src="/assets/auth.js?v=${assetVersion}"></script>
+  <noscript><style>html[data-auth-required] body{visibility:visible}.site-header,#main,.site-footer,.skip-link{display:none}</style></noscript>
   <link rel="stylesheet" href="/assets/style.css?v=${assetVersion}">
   <script src="/assets/app.js?v=${assetVersion}" defer></script>
   <script type="application/ld+json">${JSON.stringify(schema).replaceAll('<', '\\u003c')}</script>
 </head>
-<body id="top">
+<body id="top"${loginPage ? ' class="login-body"' : ''}>
+  <noscript><p class="page-width">请启用 JavaScript 后登录博客。</p></noscript>
   <a class="skip-link" href="#main">跳到主要内容</a>
   <header class="site-header"><div class="header-inner">
     <a class="wordmark" href="/" aria-label="liber 博客首页">liber<span>.</span></a>
-    <nav class="main-nav" id="main-nav" aria-label="主导航">
+    ${!loginPage ? `<nav class="main-nav" id="main-nav" aria-label="主导航">
       <a href="/"${path === '/' ? ' aria-current="page"' : ''}>文章</a>
       <a href="/archives/"${active(path, '/archives')}>归档</a>
       <a href="/about/"${active(path, '/about')}>关于</a>
-    </nav>
-    <div class="header-actions"><a class="icon-button search-link" href="/search/" aria-label="搜索文章">${icons.search}<span class="search-word">搜索</span><kbd>/</kbd></a><span class="header-divider"></span><button class="icon-button theme-toggle" type="button" aria-label="切换到深色模式">${icons.moon}${icons.sun}</button><button class="menu-toggle icon-button" type="button" aria-label="展开导航" aria-controls="main-nav" aria-expanded="false"><span></span><span></span></button></div>
+    </nav>` : '<span class="login-header-note">A PERSONAL JOURNAL</span>'}
+    <div class="header-actions">${!loginPage ? `<a class="icon-button search-link" href="/search/" aria-label="搜索文章">${icons.search}<span class="search-word">搜索</span><kbd>/</kbd></a><span class="header-divider"></span><button class="logout-button" type="button" data-logout>退出</button>` : ''}<button class="icon-button theme-toggle" type="button" aria-label="切换到深色模式">${icons.moon}${icons.sun}</button>${!loginPage ? '<button class="menu-toggle icon-button" type="button" aria-label="展开导航" aria-controls="main-nav" aria-expanded="false"><span></span><span></span></button>' : ''}</div>
   </div></header>
   <main id="main">${content}</main>
-  <footer class="site-footer"><div><a class="footer-wordmark" href="/">liber.</a><span>© ${site.started.slice(0, 4)} liber · 在文字里，慢慢积累。</span></div><nav aria-label="页脚导航"><a href="${site.github}" target="_blank" rel="noopener noreferrer">GitHub ${icons.diagonal}</a><a href="/feed.xml">RSS ${icons.rss}</a><a href="#top">回到顶部 ↑</a></nav></footer>
+  <footer class="site-footer"><div><a class="footer-wordmark" href="/">liber.</a><span>© ${site.started.slice(0, 4)} liber · 在文字里，慢慢积累。</span></div>${!loginPage ? `<nav aria-label="页脚导航"><a href="${site.github}" target="_blank" rel="noopener noreferrer">GitHub ${icons.diagonal}</a><a href="/feed.xml">RSS ${icons.rss}</a><a href="#top">回到顶部 ↑</a></nav>` : '<span class="login-footer-note">记录 · 思考 · 创造</span>'}</footer>
 </body></html>`;
+}
+
+export function loginPage() {
+  return `<section class="login-page page-width"><div class="login-intro"><div class="eyebrow"><span class="little-line"></span>WELCOME BACK</div><h1>翻开记录之前，<br>先打个<span>招呼。</span></h1><p>一些想法，一些日常。<br>登录后，继续读这里慢慢积累的文字。</p><div class="login-ornament" aria-hidden="true">l<span>.</span></div><span class="login-caption">a little space for thoughts.</span></div><div class="login-card"><div class="eyebrow">LIBER / JOURNAL</div><h2>登录博客</h2><p class="login-card-intro">很高兴，又在这里见到你。</p><form id="login-form"><label for="login-username">账号</label><input id="login-username" name="username" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" required placeholder="输入你的账号"><label for="login-password">密码</label><div class="password-field"><input id="login-password" name="password" type="password" autocomplete="current-password" required placeholder="输入你的密码"><button type="button" id="toggle-password" aria-label="显示密码" aria-pressed="false">显示</button></div><p id="login-message" class="login-message" role="status" aria-live="polite"></p><button class="login-submit" type="submit"><span>进入博客</span>${icons.arrow}</button><p class="login-session-note">在当前标签页保持登录，关闭后需要重新登录。</p></form></div></section>`;
 }
 
 export function postCard(post, index) {
