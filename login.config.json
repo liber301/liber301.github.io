@@ -1,5 +1,24 @@
 {
-  "username": "liber301",
-  "salt": "4944234c26d4c1aaa0c3aa3dbd58a59f",
-  "passwordHash": "b0a0809a82d95af900b1e280e7af6e63df9d3bc0aedf15c62c8bcd0bb5032abd"
+  "accounts": [
+    {
+      "username": "admin",
+      "salt": "7004968d668de7fe444790395de20b63",
+      "passwordHash": "f9640d4e5652917277814a0f0d7dbdd210d6e94ae92b22d7169bc1b0c542ac0e"
+    },
+    {
+      "username": "liber",
+      "salt": "be43debd0fafd155038fd89f9b14c0eb",
+      "passwordHash": "a0d39978811fa1a0f3c28599cb9d82314fb6552e6d8b04df51de075145240328"
+    },
+    {
+      "username": "liber301",
+      "salt": "5e5153309722c7bee0e17151e182ffea",
+      "passwordHash": "12125bcf1425441cd3a6c0201f72da2d9675ef0aeaad5c328d34ef5b038f5899"
+    },
+    {
+      "username": "zyf",
+      "salt": "c29dbea198458c7480a7230c0bace240",
+      "passwordHash": "02c39478ba835d29434a6046c41443914b1f274d7a94ddf52ffd118f655809d3"
+    }
+  ]
 }

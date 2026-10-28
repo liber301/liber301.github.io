@@ -10,7 +10,7 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const output = path.join(root, 'dist');
 const site = JSON.parse(await fs.readFile(path.join(root, 'site.config.json'), 'utf8'));
 const login = JSON.parse(await fs.readFile(path.join(root, 'login.config.json'), 'utf8'));
-if (typeof login.username !== 'string' || !login.username.trim() || !/^[a-f0-9]{32}$/.test(login.salt) || !/^[a-f0-9]{64}$/.test(login.passwordHash)) throw new Error('Invalid login.config.json. Run npm run set-password.');
+if (!Array.isArray(login.accounts) || !login.accounts.length || login.accounts.some(account => typeof account.username !== 'string' || !account.username.trim() || account.username !== account.username.trim() || !/^[a-f0-9]{32}$/.test(account.salt) || !/^[a-f0-9]{64}$/.test(account.passwordHash)) || new Set(login.accounts.map(account => account.username)).size !== login.accounts.length) throw new Error('Invalid or duplicate accounts in login.config.json. Run npm run set-password.');
 const loginVersion = createHash('sha256').update(JSON.stringify(login)).digest('hex').slice(0, 16);
 if (new URL(site.url).protocol !== 'https:') throw new Error('site.url must use HTTPS');
 const md = new MarkdownIt({ html: false, linkify: true, typographer: true });

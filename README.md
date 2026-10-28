@@ -8,16 +8,18 @@
 
 ## 账号和密码怎么改
 
-初始账号为 `liber301`。初始随机密码仅保存在本机 `.local/login-credentials.txt`，该目录不会提交 Git。
+已配置 `admin`、`liber`、`liber301`、`zyf` 四个账号，密码按用户指定设置，源码只保存各账号独立的盐值和密码摘要。四个账号均用于阅读博客；`admin` 只是账号名，没有额外管理权限。
 
 在项目目录运行：
 
 ```sh
 cd /Users/mmmlq/codeProject/github_liber_com
 npm run set-password
+# 也可以指定要修改的账号，例如：
+npm run set-password -- admin
 ```
 
-按提示输入账号和两次新密码（输入密码时不回显）。命令更新 `login.config.json` 中的 `username`、`salt` 和 `passwordHash`。如只改账号，也可以直接编辑 JSON 中的 `username`；不要把明文密码写入 `passwordHash`。
+按提示选择账号并输入两次新密码（输入密码时不回显）。命令只新增或修改选中的账号，保留其他账号。配置位于 `login.config.json` 的 `accounts` 数组，每项包含 `username`、`salt` 和 `passwordHash`。可以直接编辑账号名，或删除对应数组项以移除账号；账号名必须唯一，不要把明文密码写入 `passwordHash`。密码区分大小写、空格和全角/半角符号，按输入原样校验。
 
 配置随代码管理，重新构建、提交并推送后在线生效。修改账号或密码会使旧会话失效。登录在当前标签页保持，刷新和站内跳转不会要求再次登录；关闭标签页后需重新登录，也可以点击顶部“退出”。浏览器恢复已关闭标签页时可能恢复其会话。
 

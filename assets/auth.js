@@ -55,9 +55,10 @@
       const submit = form.querySelector('[type=submit]');
       submit.disabled = true;
       try {
-        const bytes = new TextEncoder().encode(`${config.salt}:${password.value}`);
+        const account = config.accounts.find(account => account.username === username.value.trim());
+        const bytes = new TextEncoder().encode(`${account?.salt || ''}:${password.value}`);
         const hash = [...new Uint8Array(await crypto.subtle.digest('SHA-256', bytes))].map(byte => byte.toString(16).padStart(2, '0')).join('');
-        if (username.value.trim() !== config.username || hash !== config.passwordHash) {
+        if (!account || hash !== account.passwordHash) {
           message.textContent = '账号或密码不正确，请再试一次。';
           username.setAttribute('aria-invalid', 'true');
           password.setAttribute('aria-invalid', 'true');
