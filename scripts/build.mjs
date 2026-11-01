@@ -15,6 +15,12 @@ const loginVersion = createHash('sha256').update(JSON.stringify(login)).digest('
 if (new URL(site.url).protocol !== 'https:') throw new Error('site.url must use HTTPS');
 const md = new MarkdownIt({ html: false, linkify: true, typographer: true });
 const defaultHeading = md.renderer.rules.heading_open;
+const defaultImage = md.renderer.rules.image;
+md.renderer.rules.image = (tokens, index, options, env, self) => {
+  tokens[index].attrSet('loading', 'lazy');
+  tokens[index].attrSet('decoding', 'async');
+  return defaultImage(tokens, index, options, env, self);
+};
 md.renderer.rules.heading_open = (tokens, index, options, env, self) => {
   const token = tokens[index];
   const level = Number(token.tag.slice(1));
@@ -40,6 +46,13 @@ for (const filename of filenames) {
   const raw = await fs.readFile(path.join(root, 'content/posts', filename), 'utf8');
   const { data, content } = matter(raw);
   if (data.draft === true) continue;
+  data.kind ||= 'article';
+  if (!['article', 'note', 'photo'].includes(data.kind)) throw new Error(`${filename}: invalid kind`);
+  data.images ||= [];
+  const validImage = value => typeof value === 'string' && (/^\/assets\//.test(value) || /^https:\/\//.test(value)) && !/[\u0000-\u0020<>"\\]/.test(value) && !value.split('/').includes('..');
+  if (!Array.isArray(data.images) || data.images.some(image => !image || !validImage(image.src) || typeof image.alt !== 'string')) throw new Error(`${filename}: invalid images`);
+  if (data.kind === 'photo' && !data.images.length) throw new Error(`${filename}: photo entries need images`);
+  if (data.cover && !validImage(data.cover)) throw new Error(`${filename}: invalid cover`);
   for (const field of ['title', 'slug', 'date', 'category', 'excerpt']) {
     if (typeof data[field] !== 'string' || !data[field].trim()) throw new Error(`${filename}: ${field} must be a nonempty string. Quote dates in front matter.`);
   }
@@ -47,7 +60,7 @@ for (const filename of filenames) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(data.date) || Number.isNaN(Date.parse(data.date))) throw new Error(`${filename}: invalid date`);
   if (!Array.isArray(data.tags) || data.tags.some(tag => typeof tag !== 'string' || !tag.trim() || ['.', '..'].includes(tag) || /[\/\\\u0000-\u001f]/.test(tag))) throw new Error(`${filename}: tags must be an array without path separators or dot path segments`);
   const text = plainText(content);
-  posts.push({ ...data, ...renderMarkdown(content), text, minutes: Math.max(1, Math.ceil(text.length / 450)) });
+  posts.push({ filename, ...data, ...renderMarkdown(content), text, minutes: Math.max(1, Math.ceil(text.length / 450)) });
 }
 posts.sort((a, b) => b.date.localeCompare(a.date) || Number(Boolean(b.featured)) - Number(Boolean(a.featured)) || a.slug.localeCompare(b.slug));
 if (!posts.length) throw new Error('Add at least one published article before building.');
@@ -56,7 +69,7 @@ const categories = [...new Set(posts.map(post => post.category))];
 const tagCounts = new Map();
 posts.forEach(post => [...new Set(post.tags)].forEach(tag => tagCounts.set(tag, (tagCounts.get(tag) || 0) + 1)));
 const tags = [...tagCounts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'zh-CN'));
-const assets = await Promise.all(['style.css', 'app.js', 'auth.js'].map(filename => fs.readFile(path.join(root, 'assets', filename))));
+const assets = await Promise.all(['style.css', 'app.js', 'auth.js', 'writer.js', 'publisher.js'].map(filename => fs.readFile(path.join(root, 'assets', filename))));
 const assetVersion = createHash('sha256').update(Buffer.concat(assets)).digest('hex').slice(0, 10);
 
 // dist is generated output owned by this build; content and source files are never removed.
@@ -74,23 +87,32 @@ async function page(url, title, content, metadata = {}) {
   await write(filename, templates.layout({ site, title, content, path: url, assetVersion, loginVersion, ...metadata }));
   if (!['/404.html', '/login/'].includes(url)) pages.push(url);
 }
+await fs.writeFile(path.join(root, 'content-index.json'), JSON.stringify(posts.map(post=>({slug:post.slug,kind:post.kind,path:'content/posts/'+post.filename})))+'\n');
+await write('assets/writer.js', (await fs.readFile(path.join(root,'assets/writer.js'),'utf8')).replace("'./publisher.js'", "'./publisher.js?v="+assetVersion+"'"));
 await write('assets/login-config.js', `window.LIBER_LOGIN=${JSON.stringify({ ...login, version: loginVersion }).replaceAll('<', '\\u003c')};\n`);
 await page('/login/', '登录博客', templates.loginPage(), { loginPage: true });
 await page('/', site.title, templates.home({ site, posts, categories, tags }));
-await page('/archives/', '文章归档', templates.archives({ posts }));
+for (const [kind, route] of [['article', 'articles'], ['note', 'notes'], ['photo', 'photos']]) {
+  const entries = posts.filter(post => post.kind === kind);
+  await page(`/${route}/`, {article:'长文',note:'短文',photo:'图片'}[kind], templates.collection({kind,posts:entries,categories:[...new Set(entries.map(post=>post.category))]}));
+}
+await page('/write/', '写作台', templates.writer({assetVersion}));
+await fs.cp(path.join(root, 'node_modules/markdown-it/dist/browser/markdown-it.umd.min.js'), path.join(output, 'assets/markdown-it.min.js'));
+await fs.cp(path.join(root, 'node_modules/markdown-it/LICENSE'), path.join(output, 'assets/markdown-it-LICENSE.txt'));
+await page('/archives/',  '文章归档', templates.archives({ posts }));
 await page('/search/', '搜索文章', templates.search());
 const aboutFile = matter(await fs.readFile(path.join(root, 'content/about.md'), 'utf8'));
 await page('/about/', aboutFile.data.title, templates.about(renderMarkdown(aboutFile.content)));
 for (const post of posts) {
-  await page(templates.postUrl(post), post.title, templates.postPage({ site, post, related: posts.filter(other => other.slug !== post.slug).slice(0, 2) }), { type: 'article', description: post.excerpt, date: post.date });
+  await page(templates.postUrl(post), post.title, post.kind === 'article' ? templates.postPage({ site, post, related: posts.filter(other => other.slug !== post.slug && other.kind === 'article').slice(0, 2) }) : templates.momentPage({post}), { type: 'article', description: post.excerpt, date: post.date });
 }
 for (const [tag] of tags) await page(`/tags/${encodeURIComponent(tag)}/`, `标签：${tag}`, templates.tagPage({ tag, posts: posts.filter(post => post.tags.includes(tag)) }));
 await page('/404.html', '没有找到这一页', templates.notFound());
-await write('search-index.json', JSON.stringify(posts.map(post => ({ title: post.title, url: templates.postUrl(post), date: post.date, category: post.category, tags: post.tags, excerpt: post.excerpt, minutes: post.minutes, text: post.text }))));
+await write('search-index.json', JSON.stringify(posts.map(post => ({ title: post.title, url: templates.postUrl(post), date: post.date, kind: post.kind, category: post.category, tags: post.tags, excerpt: post.excerpt, minutes: post.minutes, text: post.text + " " + post.images.map(image=>image.alt).join(" ") }))));
 const xmlEscape = value => String(value).replace(/[<>&"']/g, character => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;', "'": '&apos;' }[character]));
 const latestDate = new Date(`${posts[0].date}T00:00:00+08:00`).toUTCString();
 await write('feed.xml', `<?xml version="1.0" encoding="UTF-8"?>\n<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>${xmlEscape(site.title)}</title><link>${site.url}/</link><description>${xmlEscape(site.description)}</description><language>zh-cn</language><lastBuildDate>${latestDate}</lastBuildDate><atom:link href="${site.url}/feed.xml" rel="self" type="application/rss+xml"/>${posts.map(post => `<item><title>${xmlEscape(post.title)}</title><link>${site.url}${templates.postUrl(post)}</link><guid isPermaLink="true">${site.url}${templates.postUrl(post)}</guid><description>${xmlEscape(post.excerpt)}</description><pubDate>${new Date(`${post.date}T00:00:00+08:00`).toUTCString()}</pubDate>${post.tags.map(tag => `<category>${xmlEscape(tag)}</category>`).join('')}</item>`).join('')}</channel></rss>\n`);
-await write('sitemap.xml', `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${pages.filter(url => url !== '/search/').map(url => `<url><loc>${xmlEscape(`${site.url}${url}`)}</loc></url>`).join('')}</urlset>\n`);
+await write('sitemap.xml', `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${pages.filter(url => !['/search/', '/write/'].includes(url)).map(url => `<url><loc>${xmlEscape(`${site.url}${url}`)}</loc></url>`).join('')}</urlset>\n`);
 await write('robots.txt', site.visibility === 'private' ? 'User-agent: *\nDisallow: /\n' : `User-agent: *\nAllow: /\nSitemap: ${site.url}/sitemap.xml\n`);
 await write('.nojekyll', '');
 console.log(`Built ${pages.length + 2} HTML pages from ${posts.length} posts into dist/.`);

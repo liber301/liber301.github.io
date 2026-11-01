@@ -4,7 +4,10 @@
 - The user explicitly chose public GitHub Pages with a browser-only username/password login screen. Preserve that choice; do not migrate hosting or introduce platform accounts without a new request. This UI gate does not make source, posts, RSS or static assets confidential.
 - Login settings are the `accounts` array in `login.config.json`. Use `npm run set-password -- <username>` to add or update one account while preserving others. Keep per-account salts and password hashes; do not normalize password characters. Account names do not imply admin roles. Never commit `.local/` or plaintext passwords.
 - Write posts as Markdown in `content/posts/`, following existing front matter. Keep the author's name `liber`; do not invent biographical facts. Starter tutorials are marked as examples.
-- `scripts/build.mjs` generates `dist/`; edit templates, assets and content rather than generated output.
+- `scripts/build.mjs` generates `dist/` and the tracked `content-index.json`; commit the refreshed source index when content changes. Edit templates, assets and content rather than generated output.
 - Run `npm run build` and `npm run check` after changes. Check desktop and mobile layouts for visual changes, and login, logout and direct article navigation for login changes.
 - `npm run preview` serves the current build on loopback. Local preview includes the same browser-only login screen.
 - `origin` is `liber301/liber301.github.io`. Pushing main triggers `.github/workflows/deploy.yml` to publish GitHub Pages. Do not replace this remote or reintroduce the retired private Sites deployment.
+
+- Content kind is `article` (default), `note` or `photo`; preserve existing `/posts/` URLs. Web writing is `/write/`, publishing directly through GitHub with a user-supplied repository-scoped token kept only in memory. Never store or commit publishing tokens. Drafts/images are browser-local in IndexedDB until committed.
+- `npm run check` includes publication tests. Preserve atomic image/content commits, non-forced branch updates, existing tree entries, and failure status distinctions. After web publishing, pull main before local changes.

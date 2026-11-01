@@ -138,3 +138,20 @@ if (searchInput) {
   runSearch();
   searchInput.focus({ preventScroll: true });
 }
+
+// Progressive enhancement: image links remain usable when JavaScript is unavailable.
+document.querySelectorAll('.article-body img').forEach(img=>{
+  if(img.closest('a'))return;
+  const link=document.createElement('a');link.href=img.src;link.dataset.lightbox='';img.replaceWith(link);link.append(img);
+});
+const lightbox=document.createElement('dialog');lightbox.className='image-lightbox';lightbox.setAttribute('aria-label','图片查看器');
+lightbox.innerHTML='<img alt=""><div class="lightbox-controls"><p></p><div class="lightbox-buttons"><button type="button" data-prev aria-label="上一张图片">← 上一张</button><button type="button" data-next aria-label="下一张图片">下一张 →</button><button type="button" data-close>关闭 ×</button></div></div>';
+document.body.append(lightbox);
+let group=[],current=0;
+function showImage(index){current=(index+group.length)%group.length;const img=group[current].querySelector('img');lightbox.querySelector('img').src=group[current].href;lightbox.querySelector('img').alt=img?.alt||'';lightbox.querySelector('p').textContent=`${current+1} / ${group.length}${img?.alt?' · '+img.alt:''}`;lightbox.querySelector('[data-prev]').hidden=lightbox.querySelector('[data-next]').hidden=group.length<2;}
+document.addEventListener('click',event=>{const link=event.target.closest('a[data-lightbox]');if(!link)return;event.preventDefault();group=[...(link.closest('.image-grid,.article-body')||document).querySelectorAll('a[data-lightbox]')];showImage(group.indexOf(link));lightbox.showModal();});
+lightbox.querySelector('[data-close]').addEventListener('click',()=>lightbox.close());
+lightbox.querySelector('[data-prev]').addEventListener('click',()=>showImage(current-1));
+lightbox.querySelector('[data-next]').addEventListener('click',()=>showImage(current+1));
+lightbox.addEventListener('keydown',event=>{if(event.key==='ArrowLeft'){event.preventDefault();showImage(current-1);}if(event.key==='ArrowRight'){event.preventDefault();showImage(current+1);}});
+lightbox.addEventListener('click',event=>{if(event.target===lightbox)lightbox.close();});
